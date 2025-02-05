@@ -5,6 +5,4 @@ services:
     build: .
     container_name: knowledge-base
     restart: always
-    ports:
-      - "8080:8080"
 
