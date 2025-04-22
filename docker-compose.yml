@@ -1,8 +1,8 @@
-version: "3.8"
-
 services:
   knowledge-base:
     build: .
     container_name: knowledge-base
     restart: always
+    networks:
+      - att-network
 
