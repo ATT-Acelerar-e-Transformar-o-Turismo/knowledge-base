@@ -3,6 +3,4 @@ services:
     build: .
     container_name: knowledge-base
     restart: always
-    networks:
-      - att-network
 
