@@ -4,7 +4,15 @@ services:
     container_name: knowledge-base
     environment:
       - ORIGINS=${ORIGINS:-localhost}
+      - MONGODB_URL=mongodb://knowledge-mongo:27017
+    volumes:
+      - knowledge_uploads:/app/app/uploads
     restart: always
+    depends_on:
+      knowledge-mongo:
+        condition: service_healthy
+    networks:
+      - knowledge-network
     develop:
       watch:
         - action: sync
@@ -14,4 +22,29 @@ services:
             - __pycache__/
         - action: rebuild
           path: requirements.txt
+
+  knowledge-mongo:
+    image: mongo:latest
+    container_name: knowledge-mongo
+    environment:
+      - MONGO_INITDB_DATABASE=knowledge_base
+    volumes:
+      - knowledge_db:/data/db
+    restart: always
+    networks:
+      - knowledge-network
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+volumes:
+  knowledge_db:
+  knowledge_uploads:
+
+networks:
+  knowledge-network:
+    name: knowledge-network
 
