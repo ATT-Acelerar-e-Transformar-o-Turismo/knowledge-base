@@ -1,0 +1,447 @@
+services:
+  reverse-proxy:
+    image: nginx:alpine
+    container_name: att-reverse-proxy
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx-production.conf:/etc/nginx/nginx.conf:ro
+      - ./ssl:/etc/nginx/ssl:ro
+    depends_on:
+      user-interface:
+        condition: service_started
+      user-service:
+        condition: service_started
+      resource-service:
+        condition: service_started
+      indicator-service:
+        condition: service_started
+      knowledge-base:
+        condition: service_started
+    networks:
+      - web-network
+      - user-network
+      - resource-network
+      - indicators-network
+      - knowledge-network
+      - data-collector-network
+    healthcheck:
+      test: ["CMD", "nginx", "-t"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    deploy:
+      resources:
+        limits:
+          memory: 128M
+        reservations:
+          memory: 64M
+
+  user-interface:
+    image: ghcr.io/att-acelerar-e-transformar-o-turismo/att-user-interface:latest
+    container_name: att-user-interface
+    restart: unless-stopped
+    environment:
+      - VITE_API_BASE_URL=http://localhost
+    networks:
+      - web-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:80/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+        reservations:
+          memory: 128M
+
+  user-service:
+    image: ghcr.io/att-acelerar-e-transformar-o-turismo/att-user-service:latest
+    container_name: att-user-service
+    restart: unless-stopped
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8080
+    environment:
+      - MONGODB_URL=mongodb://admin:${MONGO_ROOT_PASSWORD}@user-mongo:27017/users?authSource=admin
+      - SECRET_KEY=${USER_SERVICE_SECRET_KEY}
+      - ORIGINS=localhost
+    depends_on:
+      user-mongo:
+        condition: service_healthy
+    networks:
+      - user-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+        reservations:
+          memory: 256M
+
+  resource-service:
+    image: ghcr.io/att-acelerar-e-transformar-o-turismo/att-resource-service:latest
+    container_name: att-resource-service
+    restart: unless-stopped
+    command: uvicorn main:app --host 0.0.0.0 --port 8080
+    environment:
+      - MONGO_URI=mongodb://admin:${MONGO_ROOT_PASSWORD}@resource-mongo:27017/resources?authSource=admin
+      - AMQP_SERVICES_URL=amqp://guest:guest@services-mq:5672/
+      - GEMINI_API_KEY=${GEMINI_API_KEY}
+      - GEMINI_MODEL_NAME=${GEMINI_MODEL_NAME:-gemini-1.5-flash}
+    depends_on:
+      resource-mongo:
+        condition: service_healthy
+      services-mq:
+        condition: service_healthy
+    volumes:
+      - resource_uploads:/app/uploads
+    networks:
+      - resource-network
+      - message-queue-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    deploy:
+      resources:
+        limits:
+          memory: 768M
+        reservations:
+          memory: 384M
+
+  indicator-service:
+    image: ghcr.io/att-acelerar-e-transformar-o-turismo/att-indicator-service:latest
+    container_name: att-indicator-service
+    restart: unless-stopped
+    command: uvicorn main:app --host 0.0.0.0 --port 8080
+    environment:
+      - MONGO_URI=mongodb://admin:${MONGO_ROOT_PASSWORD}@indicators-mongo:27017/indicators?authSource=admin
+      - REDIS_URL=redis://indicators-redis:6379
+      - AMQP_URL=amqp://guest:guest@services-mq:5672/
+    depends_on:
+      indicators-mongo:
+        condition: service_healthy
+      indicators-redis:
+        condition: service_healthy
+      services-mq:
+        condition: service_healthy
+    networks:
+      - indicators-network
+      - message-queue-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    deploy:
+      resources:
+        limits:
+          memory: 768M
+        reservations:
+          memory: 384M
+
+  data-collector:
+    image: ghcr.io/att-acelerar-e-transformar-o-turismo/att-data-collector:latest
+    container_name: att-data-collector
+    restart: unless-stopped
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8080
+    environment:
+      - DATA_RABBITMQ_URL=amqp://user:password@data-mq:5672/
+      - SERVICES_RABBITMQ_URL=amqp://guest:guest@services-mq:5672/
+      - REDIS_URL=redis://data-collector-redis:6379
+      - GUNICORN_WORKERS=2
+      - GUNICORN_MAX_REQUESTS=1000
+    depends_on:
+      data-mq:
+        condition: service_healthy
+      services-mq:
+        condition: service_healthy
+      data-collector-redis:
+        condition: service_healthy
+    networks:
+      - data-collector-network
+      - message-queue-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+        reservations:
+          memory: 256M
+
+  knowledge-base:
+    image: ghcr.io/att-acelerar-e-transformar-o-turismo/att-knowledge-base:latest
+    container_name: att-knowledge-base
+    restart: unless-stopped
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8080
+    environment:
+      - MONGO_URL=mongodb://admin:${MONGO_ROOT_PASSWORD}@knowledge-mongo:27017/knowledge?authSource=admin
+    depends_on:
+      knowledge-mongo:
+        condition: service_healthy
+    volumes:
+      - knowledge_uploads:/app/uploads
+    networks:
+      - knowledge-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+        reservations:
+          memory: 256M
+
+  user-mongo:
+    image: mongo:7.0
+    container_name: user-mongo
+    restart: unless-stopped
+    environment:
+      - MONGO_INITDB_ROOT_USERNAME=admin
+      - MONGO_INITDB_ROOT_PASSWORD=${MONGO_ROOT_PASSWORD}
+    volumes:
+      - user_mongo_data:/data/db
+    networks:
+      - user-network
+    command: mongod --bind_ip_all --wiredTigerCacheSizeGB 0.5
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+    deploy:
+      resources:
+        limits:
+          memory: 768M
+        reservations:
+          memory: 384M
+
+  resource-mongo:
+    image: mongo:7.0
+    container_name: resource-mongo
+    restart: unless-stopped
+    environment:
+      - MONGO_INITDB_ROOT_USERNAME=admin
+      - MONGO_INITDB_ROOT_PASSWORD=${MONGO_ROOT_PASSWORD}
+    volumes:
+      - resource_mongo_data:/data/db
+    networks:
+      - resource-network
+    command: mongod --bind_ip_all --wiredTigerCacheSizeGB 0.5
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+    deploy:
+      resources:
+        limits:
+          memory: 768M
+        reservations:
+          memory: 384M
+
+  indicators-mongo:
+    image: mongo:7.0
+    container_name: indicators-mongo
+    restart: unless-stopped
+    environment:
+      - MONGO_INITDB_ROOT_USERNAME=admin
+      - MONGO_INITDB_ROOT_PASSWORD=${MONGO_ROOT_PASSWORD}
+    volumes:
+      - indicators_mongo_data:/data/db
+    networks:
+      - indicators-network
+    command: mongod --bind_ip_all --wiredTigerCacheSizeGB 0.5
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+    deploy:
+      resources:
+        limits:
+          memory: 768M
+        reservations:
+          memory: 384M
+
+  knowledge-mongo:
+    image: mongo:7.0
+    container_name: knowledge-mongo
+    restart: unless-stopped
+    environment:
+      - MONGO_INITDB_ROOT_USERNAME=admin
+      - MONGO_INITDB_ROOT_PASSWORD=${MONGO_ROOT_PASSWORD}
+    volumes:
+      - knowledge_mongo_data:/data/db
+    networks:
+      - knowledge-network
+    command: mongod --bind_ip_all --wiredTigerCacheSizeGB 0.25
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+        reservations:
+          memory: 256M
+
+  services-mq:
+    image: rabbitmq:3.12-management-alpine
+    container_name: services-mq
+    restart: unless-stopped
+    ports:
+      - "15672:15672"
+    environment:
+      - RABBITMQ_DEFAULT_USER=guest
+      - RABBITMQ_DEFAULT_PASS=guest
+    volumes:
+      - services_mq_data:/var/lib/rabbitmq
+    networks:
+      - message-queue-network
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+        reservations:
+          memory: 128M
+
+  data-mq:
+    image: rabbitmq:3.12-management-alpine
+    container_name: data-mq
+    restart: unless-stopped
+    ports:
+      - "15673:15672"
+    environment:
+      - RABBITMQ_DEFAULT_USER=user
+      - RABBITMQ_DEFAULT_PASS=password
+    volumes:
+      - data_mq_data:/var/lib/rabbitmq
+    networks:
+      - message-queue-network
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+        reservations:
+          memory: 128M
+
+  indicators-redis:
+    image: redis:7-alpine
+    container_name: indicators-redis
+    restart: unless-stopped
+    command: redis-server --maxmemory 128mb --maxmemory-policy allkeys-lru --save 900 1 --appendonly yes
+    volumes:
+      - indicators_redis_data:/data
+    networks:
+      - indicators-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    deploy:
+      resources:
+        limits:
+          memory: 196M
+        reservations:
+          memory: 128M
+
+  data-collector-redis:
+    image: redis:7-alpine
+    container_name: data-collector-redis
+    restart: unless-stopped
+    command: redis-server --maxmemory 64mb --maxmemory-policy allkeys-lru --save 900 1 --appendonly yes
+    volumes:
+      - data_collector_redis_data:/data
+    networks:
+      - data-collector-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    deploy:
+      resources:
+        limits:
+          memory: 128M
+        reservations:
+          memory: 64M
+
+  watchtower:
+    image: containrrr/watchtower
+    container_name: att-watchtower
+    restart: unless-stopped
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    environment:
+      - WATCHTOWER_CLEANUP=true
+      - WATCHTOWER_POLL_INTERVAL=300
+      - WATCHTOWER_INCLUDE_STOPPED=true
+      - WATCHTOWER_REVIVE_STOPPED=false
+      - WATCHTOWER_TIMEOUT=30s
+      - WATCHTOWER_ROLLING_RESTART=true
+      - TZ=UTC
+    networks:
+      - web-network
+    deploy:
+      resources:
+        limits:
+          memory: 64M
+        reservations:
+          memory: 32M
+
+volumes:
+  user_mongo_data:
+  resource_mongo_data:
+  indicators_mongo_data:
+  knowledge_mongo_data:
+  services_mq_data:
+  data_mq_data:
+  indicators_redis_data:
+  data_collector_redis_data:
+  resource_uploads:
+  knowledge_uploads:
+
+networks:
+  web-network:
+    driver: bridge
+  user-network:
+    driver: bridge
+  resource-network:
+    driver: bridge
+  indicators-network:
+    driver: bridge
+  knowledge-network:
+    driver: bridge
+  data-collector-network:
+    driver: bridge
+  message-queue-network:
+    driver: bridge

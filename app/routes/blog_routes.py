@@ -74,16 +74,13 @@ async def delete_post(post_id: str):
 @router.post("/admin/posts/{post_id}/thumbnail")
 async def upload_thumbnail(post_id: str, file: UploadFile = File(...)):
     """Upload thumbnail image for a blog post"""
-    # Check if post exists
     blog_service = get_blog_service()
     post = await blog_service.get_post_by_id(post_id)
     if not post:
         raise HTTPException(status_code=404, detail="Post not found")
 
-    # Upload thumbnail
     file_info = await file_service.upload_thumbnail(file)
 
-    # Update post with thumbnail URL
     success = await blog_service.set_thumbnail(post_id, file_info["url"])
     if not success:
         raise HTTPException(status_code=500, detail="Failed to update post with thumbnail")
@@ -94,16 +91,13 @@ async def upload_thumbnail(post_id: str, file: UploadFile = File(...)):
 @router.post("/admin/posts/{post_id}/attachments")
 async def upload_attachment(post_id: str, file: UploadFile = File(...)):
     """Upload file attachment for a blog post"""
-    # Check if post exists
     blog_service = get_blog_service()
     post = await blog_service.get_post_by_id(post_id)
     if not post:
         raise HTTPException(status_code=404, detail="Post not found")
 
-    # Upload attachment
     file_info = await file_service.upload_attachment(file)
 
-    # Add attachment to post
     success = await blog_service.add_attachment(post_id, file_info)
     if not success:
         raise HTTPException(status_code=500, detail="Failed to add attachment to post")
@@ -114,13 +108,11 @@ async def upload_attachment(post_id: str, file: UploadFile = File(...)):
 @router.delete("/admin/posts/{post_id}/attachments/{filename}")
 async def remove_attachment(post_id: str, filename: str):
     """Remove file attachment from a blog post"""
-    # Remove from post
     blog_service = get_blog_service()
     success = await blog_service.remove_attachment(post_id, filename)
     if not success:
         raise HTTPException(status_code=404, detail="Post or attachment not found")
 
-    # Delete file
     await file_service.delete_file(f"attachments/{filename}")
 
     return {"message": "Attachment removed successfully"}

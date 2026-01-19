@@ -2,21 +2,21 @@ import sys
 import os
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)) + '/..')
 
+from typing import Dict
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 
-from app.database import connect_to_mongo, close_mongo_connection
+from app.config import settings
+from app.database import db_manager
 from app.routes import blog_routes, file_routes
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Startup
-    await connect_to_mongo()
+    await db_manager.connect()
     yield
-    # Shutdown
-    await close_mongo_connection()
+    await db_manager.disconnect()
 
 
 app = FastAPI(
@@ -26,8 +26,7 @@ app = FastAPI(
     lifespan=lifespan
 )
 
-# CORS Configuration
-origins = os.getenv("ORIGINS", "localhost").split(",")
+origins = settings.ORIGINS.split(",")
 app.add_middleware(
     CORSMiddleware,
     allow_origins=origins,
@@ -36,11 +35,15 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Include routers
 app.include_router(blog_routes.router)
 app.include_router(file_routes.router)
 
 
 @app.get("/")
-def read_root():
+def read_root() -> Dict[str, str]:
     return {"message": "Knowledge Base API - Blog and File Management"}
+
+
+@app.get("/health")
+async def health_check() -> Dict[str, str]:
+    return {"status": "healthy", "service": "knowledge-base"}
