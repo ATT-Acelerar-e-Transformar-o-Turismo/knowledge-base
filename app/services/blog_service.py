@@ -6,7 +6,7 @@ import logging
 
 from app.database import get_collection
 from app.models.blog_post import BlogPost, BlogPostCreate, BlogPostUpdate
-from app.exceptions import BlogPostNotFoundError
+from app.exceptions import BlogPostNotFoundError, InvalidObjectIdError
 
 logger = logging.getLogger(__name__)
 
@@ -43,8 +43,8 @@ class BlogService:
                 post["_id"] = str(post["_id"])
                 return BlogPost(**post)
         except InvalidId as e:
-            logger.warning(f"Invalid ObjectId format for post_id={post_id}: {e}")
-            return None
+            logger.error(f"Invalid ObjectId format for post_id={post_id}: {e}")
+            raise InvalidObjectIdError(f"Invalid post ID format: {post_id}") from e
         return None
 
     async def get_published_posts(self, skip: int = 0, limit: int = 10) -> List[BlogPost]:
@@ -89,7 +89,7 @@ class BlogService:
             return await self.get_post_by_id(post_id)
         except InvalidId as e:
             logger.error(f"Invalid ObjectId format for post_id={post_id}: {e}")
-            return None
+            raise InvalidObjectIdError(f"Invalid post ID format: {post_id}") from e
 
     async def delete_post(self, post_id: str) -> bool:
         """Delete a blog post"""
@@ -98,7 +98,7 @@ class BlogService:
             return result.deleted_count > 0
         except InvalidId as e:
             logger.error(f"Invalid ObjectId format for post_id={post_id}: {e}")
-            return False
+            raise InvalidObjectIdError(f"Invalid post ID format: {post_id}") from e
 
     async def increment_view_count(self, post_id: str):
         """Increment view count for a post"""
@@ -108,7 +108,8 @@ class BlogService:
                 {"$inc": {"view_count": 1}}
             )
         except InvalidId as e:
-            logger.warning(f"Failed to increment view count for invalid post_id={post_id}: {e}")
+            logger.error(f"Invalid ObjectId format for post_id={post_id}: {e}")
+            raise InvalidObjectIdError(f"Invalid post ID format: {post_id}") from e
 
     async def add_attachment(self, post_id: str, attachment_data: dict) -> bool:
         """Add file attachment metadata to a blog post."""
@@ -119,8 +120,8 @@ class BlogService:
             )
             return True
         except InvalidId as e:
-            logger.error(f"Failed to add attachment to invalid post_id={post_id}: {e}")
-            return False
+            logger.error(f"Invalid ObjectId format for post_id={post_id}: {e}")
+            raise InvalidObjectIdError(f"Invalid post ID format: {post_id}") from e
 
     async def remove_attachment(self, post_id: str, filename: str) -> bool:
         """Remove file attachment metadata from a blog post."""
@@ -131,8 +132,8 @@ class BlogService:
             )
             return True
         except InvalidId as e:
-            logger.error(f"Failed to remove attachment from invalid post_id={post_id}: {e}")
-            return False
+            logger.error(f"Invalid ObjectId format for post_id={post_id}: {e}")
+            raise InvalidObjectIdError(f"Invalid post ID format: {post_id}") from e
 
     async def set_thumbnail(self, post_id: str, thumbnail_url: str) -> bool:
         """Set or update the thumbnail image URL for a blog post."""
@@ -143,8 +144,8 @@ class BlogService:
             )
             return True
         except InvalidId as e:
-            logger.error(f"Failed to set thumbnail for invalid post_id={post_id}: {e}")
-            return False
+            logger.error(f"Invalid ObjectId format for post_id={post_id}: {e}")
+            raise InvalidObjectIdError(f"Invalid post ID format: {post_id}") from e
 
 def get_blog_service() -> BlogService:
     """Dependency injection factory for BlogService."""
