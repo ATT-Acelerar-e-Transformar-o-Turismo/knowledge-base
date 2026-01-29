@@ -2,7 +2,7 @@ import os
 import uuid
 import aiofiles
 import logging
-from typing import Dict, Set
+from typing import Dict, Set, Any
 from datetime import datetime, timezone
 from fastapi import UploadFile
 import mimetypes
@@ -36,6 +36,8 @@ class FileService:
 
         os.makedirs(os.path.join(self._upload_dir, "thumbnails"), exist_ok=True)
         os.makedirs(os.path.join(self._upload_dir, "attachments"), exist_ok=True)
+        os.makedirs(os.path.join(self._upload_dir, "domain-icons"), exist_ok=True)
+        os.makedirs(os.path.join(self._upload_dir, "domain-images"), exist_ok=True)
 
     def _generate_filename(self, original_filename: str, prefix: str = "") -> str:
         """Generate UUID-based unique filename preserving original extension."""
@@ -52,7 +54,7 @@ class FileService:
             "size": "0"
         }
 
-    async def save_file(self, file: UploadFile, subdirectory: str) -> Dict[str, any]:
+    async def save_file(self, file: UploadFile, subdirectory: str) -> Dict[str, Any]:
         """Save uploaded file with validation and return metadata."""
         if file.size and file.size > self._max_file_size:
             raise file_size_exceeded(settings.MAX_FILE_SIZE_MB)
@@ -81,7 +83,7 @@ class FileService:
             "uploaded_at": datetime.now(timezone.utc)
         }
 
-    async def upload_thumbnail(self, file: UploadFile) -> Dict[str, any]:
+    async def upload_thumbnail(self, file: UploadFile) -> Dict[str, Any]:
         """Upload and validate thumbnail image file."""
         file_info = self._get_file_info(file)
 
@@ -90,7 +92,7 @@ class FileService:
 
         return await self.save_file(file, "thumbnails")
 
-    async def upload_attachment(self, file: UploadFile) -> Dict[str, any]:
+    async def upload_attachment(self, file: UploadFile) -> Dict[str, Any]:
         """Upload and validate document attachment file."""
         file_info = self._get_file_info(file)
 
@@ -99,6 +101,40 @@ class FileService:
             raise invalid_file_type("PDF, Word, Excel, Images, Text files")
 
         return await self.save_file(file, "attachments")
+
+    async def upload_domain_icon(self, file: UploadFile) -> Dict[str, Any]:
+        """Upload and validate domain icon image file."""
+        file_info = self._get_file_info(file)
+
+        allowed_types = self._allowed_image_types | {"image/svg+xml"}
+        if file_info["mime_type"] not in allowed_types:
+            raise invalid_file_type("JPEG, PNG, GIF, WebP, SVG")
+
+        if file.size and file.size > 10 * 1024 * 1024:
+            raise file_size_exceeded(10)
+
+        return await self.save_file(file, "domain-icons")
+
+    async def delete_domain_icon(self, filename: str) -> bool:
+        """Delete domain icon from storage."""
+        return await self.delete_file(f"/uploads/domain-icons/{filename}")
+
+    async def upload_domain_image(self, file: UploadFile) -> Dict[str, Any]:
+        """Upload and validate domain image file."""
+        file_info = self._get_file_info(file)
+
+        allowed_types = self._allowed_image_types | {"image/svg+xml"}
+        if file_info["mime_type"] not in allowed_types:
+            raise invalid_file_type("JPEG, PNG, GIF, WebP, SVG")
+
+        if file.size and file.size > 10 * 1024 * 1024:
+            raise file_size_exceeded(10)
+
+        return await self.save_file(file, "domain-images")
+
+    async def delete_domain_image(self, filename: str) -> bool:
+        """Delete domain image from storage."""
+        return await self.delete_file(f"/uploads/domain-images/{filename}")
 
     async def delete_file(self, file_path: str) -> bool:
         """Delete a file from storage if it exists."""

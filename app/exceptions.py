@@ -31,6 +31,11 @@ class FileSizeLimitExceededError(KnowledgeBaseException):
     pass
 
 
+class InvalidObjectIdError(KnowledgeBaseException):
+    """Raised when an invalid MongoDB ObjectId is provided."""
+    pass
+
+
 def blog_post_not_found(post_id: str) -> HTTPException:
     """Create HTTPException for blog post not found."""
     return HTTPException(

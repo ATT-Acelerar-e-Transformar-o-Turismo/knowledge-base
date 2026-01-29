@@ -47,3 +47,8 @@ def read_root() -> Dict[str, str]:
 @app.get("/health")
 async def health_check() -> Dict[str, str]:
     return {"status": "healthy", "service": "knowledge-base"}
+
+
+@app.get("/version")
+def get_version() -> Dict[str, str]:
+    return {"service": "knowledge-base", "version": "1.0.0"}
