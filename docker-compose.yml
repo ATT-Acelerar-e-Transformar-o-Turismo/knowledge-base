@@ -1,6 +1,8 @@
 services:
   knowledge-base:
-    build: .
+    build:
+      context: .
+      network: host
     container_name: knowledge-base
     environment:
       - ORIGINS=${ORIGINS:-localhost}
