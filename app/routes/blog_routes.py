@@ -3,6 +3,7 @@ from typing import List, Optional
 from app.models.blog_post import BlogPost, BlogPostCreate, BlogPostUpdate
 from app.services.blog_service import get_blog_service
 from app.services.file_service import file_service
+from app.auth import require_admin
 
 router = APIRouter(prefix="/api/blog", tags=["blog"])
 
@@ -37,7 +38,8 @@ async def get_post(post_id: str):
 @router.get("/admin/posts", response_model=List[BlogPost])
 async def get_all_posts_admin(
     skip: int = Query(0, ge=0),
-    limit: int = Query(10, le=50)
+    limit: int = Query(10, le=50),
+    _=Depends(require_admin),
 ):
     """Get all blog posts for admin view"""
     blog_service = get_blog_service()
@@ -45,14 +47,14 @@ async def get_all_posts_admin(
 
 
 @router.post("/admin/posts", response_model=BlogPost)
-async def create_post(post: BlogPostCreate):
+async def create_post(post: BlogPostCreate, _=Depends(require_admin)):
     """Create a new blog post"""
     blog_service = get_blog_service()
     return await blog_service.create_post(post)
 
 
 @router.put("/admin/posts/{post_id}", response_model=BlogPost)
-async def update_post(post_id: str, update_data: BlogPostUpdate):
+async def update_post(post_id: str, update_data: BlogPostUpdate, _=Depends(require_admin)):
     """Update a blog post"""
     blog_service = get_blog_service()
     post = await blog_service.update_post(post_id, update_data)
@@ -62,7 +64,7 @@ async def update_post(post_id: str, update_data: BlogPostUpdate):
 
 
 @router.delete("/admin/posts/{post_id}")
-async def delete_post(post_id: str):
+async def delete_post(post_id: str, _=Depends(require_admin)):
     """Delete a blog post"""
     blog_service = get_blog_service()
     success = await blog_service.delete_post(post_id)
@@ -72,7 +74,7 @@ async def delete_post(post_id: str):
 
 
 @router.post("/admin/posts/{post_id}/thumbnail")
-async def upload_thumbnail(post_id: str, file: UploadFile = File(...)):
+async def upload_thumbnail(post_id: str, file: UploadFile = File(...), _=Depends(require_admin)):
     """Upload thumbnail image for a blog post"""
     blog_service = get_blog_service()
     post = await blog_service.get_post_by_id(post_id)
@@ -89,7 +91,7 @@ async def upload_thumbnail(post_id: str, file: UploadFile = File(...)):
 
 
 @router.post("/admin/posts/{post_id}/attachments")
-async def upload_attachment(post_id: str, file: UploadFile = File(...)):
+async def upload_attachment(post_id: str, file: UploadFile = File(...), _=Depends(require_admin)):
     """Upload file attachment for a blog post"""
     blog_service = get_blog_service()
     post = await blog_service.get_post_by_id(post_id)
@@ -106,7 +108,7 @@ async def upload_attachment(post_id: str, file: UploadFile = File(...)):
 
 
 @router.delete("/admin/posts/{post_id}/attachments/{filename}")
-async def remove_attachment(post_id: str, filename: str):
+async def remove_attachment(post_id: str, filename: str, _=Depends(require_admin)):
     """Remove file attachment from a blog post"""
     blog_service = get_blog_service()
     success = await blog_service.remove_attachment(post_id, filename)
@@ -119,14 +121,14 @@ async def remove_attachment(post_id: str, filename: str):
 
 
 @router.post("/admin/upload/thumbnail")
-async def upload_thumbnail_standalone(file: UploadFile = File(...)):
+async def upload_thumbnail_standalone(file: UploadFile = File(...), _=Depends(require_admin)):
     """Upload thumbnail image (standalone)"""
     file_info = await file_service.upload_thumbnail(file)
     return {"message": "Thumbnail uploaded successfully", "file_info": file_info}
 
 
 @router.post("/admin/upload/attachment")
-async def upload_attachment_standalone(file: UploadFile = File(...)):
+async def upload_attachment_standalone(file: UploadFile = File(...), _=Depends(require_admin)):
     """Upload attachment file (standalone)"""
     file_info = await file_service.upload_attachment(file)
     return {"message": "Attachment uploaded successfully", "file_info": file_info}
