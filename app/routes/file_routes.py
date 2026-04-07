@@ -1,8 +1,9 @@
-from fastapi import APIRouter, HTTPException, UploadFile, File
+from fastapi import APIRouter, HTTPException, UploadFile, File, Depends
 from fastapi.responses import FileResponse
 import os
 from app.services.file_service import file_service
 from app.exceptions import InvalidFileTypeError, FileSizeLimitExceededError
+from app.auth import require_admin
 
 router = APIRouter(prefix="/uploads", tags=["files"])
 
@@ -28,7 +29,7 @@ async def serve_attachment(filename: str):
 
 
 @router.post("/domain-icons/upload")
-async def upload_domain_icon(file: UploadFile = File(...)):
+async def upload_domain_icon(file: UploadFile = File(...), _=Depends(require_admin)):
     """Upload domain icon image"""
     try:
         result = await file_service.upload_domain_icon(file)
@@ -47,7 +48,7 @@ async def serve_domain_icon(filename: str):
 
 
 @router.delete("/domain-icons/{filename}")
-async def delete_domain_icon(filename: str):
+async def delete_domain_icon(filename: str, _=Depends(require_admin)):
     """Delete domain icon"""
     success = await file_service.delete_domain_icon(filename)
     if not success:
@@ -56,7 +57,7 @@ async def delete_domain_icon(filename: str):
 
 
 @router.post("/domain-images/upload")
-async def upload_domain_image(file: UploadFile = File(...)):
+async def upload_domain_image(file: UploadFile = File(...), _=Depends(require_admin)):
     """Upload domain image"""
     try:
         result = await file_service.upload_domain_image(file)
@@ -75,7 +76,7 @@ async def serve_domain_image(filename: str):
 
 
 @router.delete("/domain-images/{filename}")
-async def delete_domain_image(filename: str):
+async def delete_domain_image(filename: str, _=Depends(require_admin)):
     """Delete domain image"""
     success = await file_service.delete_domain_image(filename)
     if not success:
