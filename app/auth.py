@@ -1,3 +1,4 @@
+import time
 import httpx
 from jose import JWTError, jwt
 from fastapi import Depends, HTTPException, status
@@ -5,18 +6,22 @@ from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 
 JWKS_URL = "http://att-keycloak:7080/auth/realms/att/protocol/openid-connect/certs"
 ALGORITHMS = ["RS256"]
+JWKS_TTL = 300  # refresh JWKS every 5 minutes
 
 _jwks_cache = None
+_jwks_fetched_at = 0
 security = HTTPBearer()
 
 
 async def _get_jwks():
-    global _jwks_cache
-    if not _jwks_cache:
+    global _jwks_cache, _jwks_fetched_at
+    now = time.monotonic()
+    if not _jwks_cache or (now - _jwks_fetched_at) > JWKS_TTL:
         async with httpx.AsyncClient() as client:
             resp = await client.get(JWKS_URL)
             resp.raise_for_status()
             _jwks_cache = resp.json()
+            _jwks_fetched_at = now
     return _jwks_cache
 
 
