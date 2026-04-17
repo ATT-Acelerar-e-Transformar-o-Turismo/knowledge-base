@@ -1,14 +1,8 @@
-import re
-import unicodedata
 from pydantic import BaseModel, Field
 from typing import Optional
 from datetime import datetime
 
-
-def slugify(text: str) -> str:
-    text = unicodedata.normalize("NFKD", text).encode("ascii", "ignore").decode("ascii")
-    text = re.sub(r"[^\w\s-]", "", text.lower())
-    return re.sub(r"[-\s]+", "-", text).strip("-")
+from app.utils import slugify  # noqa: F401 — re-exported for backwards compatibility
 
 
 class Author(BaseModel):

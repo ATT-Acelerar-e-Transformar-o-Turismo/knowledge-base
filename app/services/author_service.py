@@ -5,7 +5,8 @@ from datetime import datetime, timezone
 import logging
 
 from app.database import get_collection
-from app.models.author import Author, AuthorCreate, AuthorUpdate, slugify
+from app.models.author import Author, AuthorCreate, AuthorUpdate
+from app.utils import slugify
 
 logger = logging.getLogger(__name__)
 

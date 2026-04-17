@@ -86,12 +86,17 @@ class FileService:
     async def upload_thumbnail(self, file: UploadFile) -> Dict[str, Any]:
         """Upload and validate thumbnail image file."""
         file_info = self._get_file_info(file)
-
-        # Check MIME type first, fall back to extension check
+        mime = file_info["mime_type"]
+        allowed_mime = self._allowed_image_types | {"image/svg+xml"}
         allowed_ext = {".jpg", ".jpeg", ".png", ".gif", ".webp", ".svg"}
         ext = os.path.splitext(file.filename or "")[1].lower()
-        if file_info["mime_type"] not in self._allowed_image_types and ext not in allowed_ext:
-            raise invalid_file_type("JPEG, PNG, GIF, WebP")
+
+        if mime in ("application/octet-stream", None):
+            # MIME unknown — fall back to extension check only
+            if ext not in allowed_ext:
+                raise invalid_file_type("JPEG, PNG, GIF, WebP, SVG")
+        elif mime not in allowed_mime:
+            raise invalid_file_type("JPEG, PNG, GIF, WebP, SVG")
 
         return await self.save_file(file, "thumbnails")
 

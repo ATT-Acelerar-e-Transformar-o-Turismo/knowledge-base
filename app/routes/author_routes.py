@@ -60,13 +60,7 @@ async def upload_author_photo(author_id: str, file: UploadFile = File(...), _=De
     if not author:
         raise HTTPException(status_code=404, detail="Author not found")
 
-    import os
-    ext = os.path.splitext(file.filename or "")[1].lower()
-    allowed_ext = {".jpg", ".jpeg", ".png", ".gif", ".webp", ".svg"}
-    if ext not in allowed_ext:
-        raise HTTPException(status_code=400, detail=f"Invalid file type. Allowed: {', '.join(allowed_ext)}")
-
-    file_info = await file_service.save_file(file, "thumbnails")
+    file_info = await file_service.upload_thumbnail(file)
     await service.set_photo(author_id, file_info["url"])
     return {"message": "Photo uploaded", "photo_url": file_info["url"]}
 
@@ -78,13 +72,7 @@ async def upload_author_cover(author_id: str, file: UploadFile = File(...), _=De
     if not author:
         raise HTTPException(status_code=404, detail="Author not found")
 
-    import os
-    ext = os.path.splitext(file.filename or "")[1].lower()
-    allowed_ext = {".jpg", ".jpeg", ".png", ".gif", ".webp", ".svg"}
-    if ext not in allowed_ext:
-        raise HTTPException(status_code=400, detail=f"Invalid file type. Allowed: {', '.join(allowed_ext)}")
-
-    file_info = await file_service.save_file(file, "thumbnails")
+    file_info = await file_service.upload_thumbnail(file)
     await service.set_cover(author_id, file_info["url"])
     return {"message": "Cover uploaded", "cover_url": file_info["url"]}
 

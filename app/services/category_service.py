@@ -6,7 +6,7 @@ import logging
 
 from app.database import get_collection
 from app.models.category import Category, CategoryCreate, CategoryUpdate
-from app.models.author import slugify
+from app.utils import slugify
 
 logger = logging.getLogger(__name__)
 
@@ -78,11 +78,17 @@ class CategoryService:
         update_dict = {k: v for k, v in data.model_dump().items() if v is not None}
         if not update_dict:
             return await self.get_by_id(category_id)
+
+        old_slug = None
         if "name_pt" in update_dict:
+            old_cat = await self.get_by_id(category_id)
+            if old_cat:
+                old_slug = old_cat.slug
             new_slug = slugify(update_dict["name_pt"])
             if await self.slug_exists(new_slug, exclude_id=category_id):
                 raise ValueError(f"Category with slug '{new_slug}' already exists")
             update_dict["slug"] = new_slug
+
         try:
             result = await self.collection.update_one(
                 {"_id": ObjectId(category_id)},
@@ -92,6 +98,15 @@ class CategoryService:
             return None
         if result.matched_count == 0:
             return None
+
+        # Update blog posts that reference the old slug
+        if old_slug and update_dict.get("slug") and old_slug != update_dict["slug"]:
+            posts_col = get_collection("posts")
+            await posts_col.update_many(
+                {"categories": old_slug},
+                {"$set": {"categories.$": update_dict["slug"]}}
+            )
+
         return await self.get_by_id(category_id)
 
     async def delete(self, category_id: str) -> bool:
