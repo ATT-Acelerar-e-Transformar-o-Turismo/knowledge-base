@@ -9,7 +9,7 @@ from contextlib import asynccontextmanager
 
 from app.config import settings
 from app.database import db_manager
-from app.routes import blog_routes, file_routes
+from app.routes import blog_routes, file_routes, author_routes, category_routes
 
 
 @asynccontextmanager
@@ -37,6 +37,8 @@ app.add_middleware(
 
 app.include_router(blog_routes.router)
 app.include_router(file_routes.router)
+app.include_router(author_routes.router)
+app.include_router(category_routes.router)
 
 
 @app.get("/")

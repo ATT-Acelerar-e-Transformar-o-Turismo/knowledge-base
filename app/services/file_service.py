@@ -87,7 +87,10 @@ class FileService:
         """Upload and validate thumbnail image file."""
         file_info = self._get_file_info(file)
 
-        if file_info["mime_type"] not in self._allowed_image_types:
+        # Check MIME type first, fall back to extension check
+        allowed_ext = {".jpg", ".jpeg", ".png", ".gif", ".webp", ".svg"}
+        ext = os.path.splitext(file.filename or "")[1].lower()
+        if file_info["mime_type"] not in self._allowed_image_types and ext not in allowed_ext:
             raise invalid_file_type("JPEG, PNG, GIF, WebP")
 
         return await self.save_file(file, "thumbnails")
