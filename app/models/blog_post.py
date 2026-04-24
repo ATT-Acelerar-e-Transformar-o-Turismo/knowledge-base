@@ -77,6 +77,7 @@ class BlogPostUpdate(BaseModel):
     categories: Optional[List[str]] = None
     keywords: Optional[List[str]] = None
     tags: Optional[List[str]] = None
+    attachments: Optional[List[dict]] = None
     published_at: Optional[datetime] = None
 
 

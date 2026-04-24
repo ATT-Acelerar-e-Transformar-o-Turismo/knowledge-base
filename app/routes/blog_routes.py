@@ -1,4 +1,4 @@
-from fastapi import APIRouter, HTTPException, Query, Depends, UploadFile, File, Form
+from fastapi import APIRouter, HTTPException, Query, Depends, UploadFile, File, Form, Body
 from typing import List, Optional
 from app.models.blog_post import BlogPost, BlogPostCreate, BlogPostUpdate
 from app.services.blog_service import get_blog_service
@@ -105,6 +105,17 @@ async def upload_attachment(post_id: str, file: UploadFile = File(...), _=Depend
         raise HTTPException(status_code=500, detail="Failed to add attachment to post")
 
     return {"message": "Attachment uploaded successfully", "attachment": file_info}
+
+
+@router.put("/admin/posts/{post_id}/attachments/order")
+async def reorder_attachments(post_id: str, attachments: List[dict] = Body(...), _=Depends(require_admin)):
+    """Replace the attachments array with a reordered list."""
+    blog_service = get_blog_service()
+    update = BlogPostUpdate(attachments=attachments)
+    post = await blog_service.update_post(post_id, update)
+    if not post:
+        raise HTTPException(status_code=404, detail="Post not found")
+    return {"message": "Attachments reordered", "attachments": post.attachments}
 
 
 @router.delete("/admin/posts/{post_id}/attachments/{filename}")
