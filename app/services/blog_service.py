@@ -147,6 +147,18 @@ class BlogService:
             logger.error(f"Invalid ObjectId format for post_id={post_id}: {e}")
             raise InvalidObjectIdError(f"Invalid post ID format: {post_id}") from e
 
+    async def clear_thumbnail(self, post_id: str) -> bool:
+        """Remove the thumbnail_url field from a blog post."""
+        try:
+            await self.collection.update_one(
+                {"_id": ObjectId(post_id)},
+                {"$unset": {"thumbnail_url": ""}}
+            )
+            return True
+        except InvalidId as e:
+            logger.error(f"Invalid ObjectId format for post_id={post_id}: {e}")
+            raise InvalidObjectIdError(f"Invalid post ID format: {post_id}") from e
+
 def get_blog_service() -> BlogService:
     """Dependency injection factory for BlogService."""
     return BlogService()

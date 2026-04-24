@@ -90,6 +90,19 @@ async def upload_thumbnail(post_id: str, file: UploadFile = File(...), _=Depends
     return {"message": "Thumbnail uploaded successfully", "thumbnail_url": file_info["url"]}
 
 
+@router.delete("/admin/posts/{post_id}/thumbnail")
+async def delete_thumbnail(post_id: str, _=Depends(require_admin)):
+    """Remove the thumbnail image from a blog post."""
+    blog_service = get_blog_service()
+    post = await blog_service.get_post_by_id(post_id)
+    if not post:
+        raise HTTPException(status_code=404, detail="Post not found")
+    success = await blog_service.clear_thumbnail(post_id)
+    if not success:
+        raise HTTPException(status_code=500, detail="Failed to clear thumbnail")
+    return {"message": "Thumbnail removed successfully"}
+
+
 @router.post("/admin/posts/{post_id}/attachments")
 async def upload_attachment(post_id: str, file: UploadFile = File(...), _=Depends(require_admin)):
     """Upload file attachment for a blog post"""
