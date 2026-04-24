@@ -118,8 +118,8 @@ class FileService:
         if file_info["mime_type"] not in allowed_types:
             raise invalid_file_type("JPEG, PNG, GIF, WebP, SVG")
 
-        if file.size and file.size > 10 * 1024 * 1024:
-            raise file_size_exceeded(10)
+        if file.size and file.size > 50 * 1024 * 1024:
+            raise file_size_exceeded(50)
 
         return await self.save_file(file, "domain-icons")
 
@@ -135,8 +135,8 @@ class FileService:
         if file_info["mime_type"] not in allowed_types:
             raise invalid_file_type("JPEG, PNG, GIF, WebP, SVG")
 
-        if file.size and file.size > 10 * 1024 * 1024:
-            raise file_size_exceeded(10)
+        if file.size and file.size > 50 * 1024 * 1024:
+            raise file_size_exceeded(50)
 
         return await self.save_file(file, "domain-images")
 
