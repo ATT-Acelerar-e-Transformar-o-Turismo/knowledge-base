@@ -56,6 +56,7 @@ class BlogPostCreate(BaseModel):
     categories: List[str] = []
     keywords: List[str] = []
     tags: List[str] = []
+    published_at: Optional[datetime] = None
 
 
 class BlogPostUpdate(BaseModel):

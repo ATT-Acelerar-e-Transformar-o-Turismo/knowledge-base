@@ -31,6 +31,13 @@ class BlogService:
         post_dict["view_count"] = 0
         post_dict["attachments"] = []
 
+        # If the caller picked a publication date, honor it; otherwise fall
+        # back to the current time when the post is being published directly.
+        # Drafts without a chosen date stay published_at=None until the user
+        # eventually publishes them.
+        if post_dict.get("published_at") is None and post_dict.get("status") == "published":
+            post_dict["published_at"] = current_time
+
         result = await self.collection.insert_one(post_dict)
         post_dict["_id"] = str(result.inserted_id)
         return BlogPost(**post_dict)
@@ -79,8 +86,18 @@ class BlogService:
             update_dict = {k: v for k, v in update_data.model_dump().items() if v is not None}
             update_dict["updated_at"] = datetime.now(timezone.utc)
 
+            # Auto-set published_at only when transitioning to published AND
+            # the post does not yet have a publication date. The create flow
+            # lets the author pick the date, and edits must preserve it —
+            # without this guard, re-publishing a previously-dated post would
+            # silently overwrite the stored date with "now".
             if update_dict.get("status") == "published" and "published_at" not in update_dict:
-                update_dict["published_at"] = datetime.now(timezone.utc)
+                existing = await self.collection.find_one(
+                    {"_id": ObjectId(post_id)},
+                    {"published_at": 1},
+                )
+                if not existing or existing.get("published_at") is None:
+                    update_dict["published_at"] = datetime.now(timezone.utc)
 
             await self.collection.update_one(
                 {"_id": ObjectId(post_id)},
